@@ -43,7 +43,7 @@
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-runtime</artifactId>
+            <artifactId>kotlin-stdlib</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -125,4 +125,11 @@
             </plugin>
         </plugins>
     </build>
+
+    <repositories>
+        <repository>
+            <id>jetbrains-utils</id>
+            <url>http://repository.jetbrains.com/utils</url>
+        </repository>
+    </repositories>
 </project>

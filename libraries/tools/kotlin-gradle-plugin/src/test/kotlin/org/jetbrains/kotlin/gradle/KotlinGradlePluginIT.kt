@@ -10,15 +10,9 @@ import org.testng.annotations.AfterMethod
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 
-/**
- * Created by Nikita.Skvortsov
- * Date: 2/27/13, 5:02 PM
- */
-
-
 class BasicKotlinGradleIT {
 
-    var workingDir : File = File(".")
+    var workingDir: File = File(".")
 
     BeforeMethod fun setUp() {
         workingDir = Files.createTempDir()!!
@@ -35,19 +29,19 @@ class BasicKotlinGradleIT {
         val projectDir = File(workingDir, "alfa")
 
         val pathToKotlinPlugin = "-PpathToKotlinPlugin=" + File("target/local-repo").getAbsolutePath()
-        val cmd =   if (SystemInfo.isWindows)
-                        Arrays.asList("cmd", "/C", "gradlew.bat", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon")
-                    else
-                        Arrays.asList("./gradlew", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon")
+        val cmd = if (SystemInfo.isWindows)
+            Arrays.asList("cmd", "/C", "gradlew.bat", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon")
+        else
+            Arrays.asList("./gradlew", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon")
 
-        val builder : ProcessBuilder = ProcessBuilder(cmd)
+        val builder = ProcessBuilder(cmd)
         builder.directory(projectDir)
 
         builder.redirectErrorStream(true)
-        val process : Process =  builder.start()
+        val process = builder.start()
 
-        val s : Scanner = Scanner(process.getInputStream()!!)
-        val text : StringBuilder = StringBuilder()
+        val s = Scanner(process.getInputStream()!!)
+        val text = StringBuilder()
         while (s.hasNextLine()) {
             text append s.nextLine()
             text append "\n"
@@ -74,7 +68,7 @@ class BasicKotlinGradleIT {
             val array = source.listFiles()
             if (array != null) {
                 for (child in array) {
-                    copyRecursively(child,targetFile)
+                    copyRecursively(child, targetFile)
                 }
             }
         } else {
@@ -83,7 +77,7 @@ class BasicKotlinGradleIT {
     }
 
 
-    fun deleteRecursively(f : File): Unit {
+    fun deleteRecursively(f: File): Unit {
         if (f.isDirectory()) {
             val children = f.listFiles()
             if (children != null) {
