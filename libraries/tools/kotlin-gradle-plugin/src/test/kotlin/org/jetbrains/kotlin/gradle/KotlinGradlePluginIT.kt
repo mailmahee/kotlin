@@ -17,7 +17,7 @@ class BasicKotlinGradleIT {
     var workingDir: File = File(".")
 
     Before fun setUp() {
-        workingDir = Files.createTempDir()!!
+        workingDir = Files.createTempDir()
         workingDir.mkdirs()
         copyRecursively(File("src/test/resources/testProject/alfa"), workingDir)
     }
@@ -32,9 +32,9 @@ class BasicKotlinGradleIT {
 
         val pathToKotlinPlugin = "-PpathToKotlinPlugin=" + File("target/local-repo").getAbsolutePath()
         val cmd = if (SystemInfo.isWindows)
-            Arrays.asList("cmd", "/C", "gradlew.bat", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon")
+            Arrays.asList("cmd", "/C", "gradlew.bat", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon", "--debug")
         else
-            Arrays.asList("./gradlew", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon")
+            Arrays.asList("./gradlew", "clean", "compileDeployKotlin", "build", pathToKotlinPlugin, "--no-daemon", "--debug")
 
         val builder = ProcessBuilder(cmd)
         builder.directory(projectDir)

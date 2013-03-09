@@ -28,7 +28,7 @@ import org.jetbrains.jet.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.jet.cli.common.messages.CompilerMessageLocation
 import org.gradle.api.logging.Logger
 
-class KotlinCompile(): AbstractCompile() {
+public open class KotlinCompile(): AbstractCompile() {
 
     val srcDirsRoots = HashSet<File>()
     val compiler = K2JVMCompiler()
