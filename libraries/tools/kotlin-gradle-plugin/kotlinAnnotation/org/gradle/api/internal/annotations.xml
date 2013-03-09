@@ -8,5 +8,6 @@
         <annotation name='jet.runtime.typeinfo.KotlinSignature'>
             <val name="value" val="&quot;fun getLogger() : Logger?&quot;"/>
         </annotation>
+        <annotation name='org.jetbrains.annotations.NotNull'/>
     </item>
 </root>

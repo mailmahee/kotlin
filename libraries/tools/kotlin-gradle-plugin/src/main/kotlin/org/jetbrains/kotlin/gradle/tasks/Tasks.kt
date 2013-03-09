@@ -22,6 +22,11 @@ import com.google.common.io.Files
 import org.gradle.api.file.SourceDirectorySet
 import com.google.common.base.Joiner
 import java.util.ArrayList
+import org.apache.commons.io.FilenameUtils
+import org.jetbrains.jet.cli.common.messages.MessageCollector
+import org.jetbrains.jet.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.jet.cli.common.messages.CompilerMessageLocation
+import org.gradle.api.logging.Logger
 
 class KotlinCompile(): AbstractCompile() {
 
@@ -52,7 +57,7 @@ class KotlinCompile(): AbstractCompile() {
         val absPath = file.getAbsolutePath()
         for (root in srcDirsRoots) {
             val rootAbsPath = root.getAbsolutePath()
-            if (absPath.contains(rootAbsPath)) {
+            if (FilenameUtils.directoryContains(rootAbsPath, absPath)) {
                 return root
             }
         }
@@ -69,7 +74,7 @@ class KotlinCompile(): AbstractCompile() {
 
         // collect source directory roots for all java files to allow cross compilation
         for (file in getSource()) {
-            if (file.getName().endsWith(".java")) {
+            if (FilenameUtils.getExtension(file.getName()).equalsIgnoreCase("java")) {
                 val javaRoot = findSrcDirRoot(file)
                 if (javaRoot != null) {
                     javaSrcRoots.add(javaRoot)
@@ -77,6 +82,11 @@ class KotlinCompile(): AbstractCompile() {
             } else {
                 sources.add(file)
             }
+        }
+
+        if (sources.empty) {
+            getLogger().warn("No Kotlin files found, skipping Kotlin compiler task")
+            return
         }
 
         args.setSourceDirs(sources.map { it.getAbsolutePath() })
@@ -87,12 +97,19 @@ class KotlinCompile(): AbstractCompile() {
 
         args.setClasspath(effectiveClassPath)
 
+        val embeddedAnnotations = getAnnotations()
+
         args.outputDir = getDestinationDir()?.getPath()
         args.noJdkAnnotations = true
-        args.annotations = getAnnotations()
+        args.annotations = embeddedAnnotations.getPath()
         args.noStdlib = true
 
-        val exitCode = compiler.exec(System.err, args)
+        val messageCollector = GradleMessageCollector(getLogger())
+        val exitCode = compiler.exec(messageCollector, args)
+
+        if (embeddedAnnotations.getParentFile()?.delete() != true) {
+            throw GradleException("Can't delete extracted annotations " + embeddedAnnotations)
+        }
 
         when (exitCode) {
             ExitCode.COMPILATION_ERROR -> throw GradleException("Compilation error. See log for more details")
@@ -102,24 +119,20 @@ class KotlinCompile(): AbstractCompile() {
 
     }
 
-    fun getAnnotations(): String? {
+    fun getAnnotations(): File {
         val jdkAnnotations: String = "kotlin-jdk-annotations.jar"
         val jdkAnnotationsResource: URL? = Resources.getResource(jdkAnnotations)
         if (jdkAnnotationsResource == null) {
-            return null
+            throw GradleException(jdkAnnotations + " not found in Kotlin gradle plugin classpath")
         }
 
-        // todo fix leak of deleteOnExit handlers
-        val jdkAnnotationsTempDir: File? = Files.createTempDir()
-        jdkAnnotationsTempDir?.deleteOnExit()
+        val jdkAnnotationsTempDir = Files.createTempDir()
         val jdkAnnotationsFile = File(jdkAnnotationsTempDir, jdkAnnotations)
 
         Files.copy(Resources.newInputStreamSupplier(jdkAnnotationsResource), jdkAnnotationsFile)
-        return jdkAnnotationsFile.getPath()
+        return jdkAnnotationsFile
     }
 }
-
-
 
 public open class KDoc(): SourceTask() {
 
@@ -167,7 +180,7 @@ public open class KDoc(): SourceTask() {
 
     /**
      * A map of package name to html or markdown files used to describe the package. If none is
-     * speciied we will look for a package.html or package.md file in the source tree
+     * specified we will look for a package.html or package.md file in the source tree
      */
     public var packageDescriptionFiles: Map<String, String> = HashMap()
 
@@ -194,7 +207,8 @@ public open class KDoc(): SourceTask() {
 
         val compiler = KDocCompiler()
 
-        val exitCode = compiler.exec(System.err, args);
+        val messageCollector = GradleMessageCollector(getLogger())
+        val exitCode = compiler.exec(messageCollector, args);
 
         when (exitCode) {
             ExitCode.COMPILATION_ERROR -> throw GradleException("Failed to generate kdoc. See log for more details")
@@ -205,3 +219,21 @@ public open class KDoc(): SourceTask() {
     }
 }
 
+class GradleMessageCollector(val logger : Logger): MessageCollector {
+    public override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageLocation) {
+        val path = location.getPath()
+        val position = if (path != null) (path + ": (" + location.getLine() + ", " + location.getColumn() + ") ") else ""
+
+        val text = position + message
+
+        if (CompilerMessageSeverity.VERBOSE.contains(severity)) {
+            logger.debug(text);
+        } else if (CompilerMessageSeverity.ERRORS.contains(severity)) {
+            logger.error(text);
+        } else if (severity == CompilerMessageSeverity.INFO) {
+            logger.info(text);
+        } else {
+            logger.warn(text);
+        }
+    }
+}

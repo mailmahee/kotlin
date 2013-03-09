@@ -46,8 +46,8 @@ open class KotlinPlugin: Plugin<Project> {
                 if (sourceSet is HasConvention) {
                     val sourceSetName = sourceSet.getName()
                     val kotlinSourceSet = KotlinSourceSetImpl(sourceSetName, project.getFileResolver())
+
                     val kotlinDirSet = kotlinSourceSet.getKotlin()
-                    // todo wtf: hard code?
                     kotlinDirSet.srcDir(project.file("src/${sourceSetName}/kotlin"))
 
                     sourceSet.getAllJava()?.source(kotlinDirSet)

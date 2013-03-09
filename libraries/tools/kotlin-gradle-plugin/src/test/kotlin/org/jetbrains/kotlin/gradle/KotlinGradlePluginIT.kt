@@ -5,23 +5,25 @@ import com.intellij.openapi.util.SystemInfo
 import java.io.File
 import java.util.Arrays
 import java.util.Scanner
-import org.testng.Assert.*
-import org.testng.annotations.AfterMethod
-import org.testng.annotations.BeforeMethod
-import org.testng.annotations.Test
+import org.junit.Before
+import org.junit.After
+import org.junit.Test
+import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+import kotlin.test.fail
 
 class BasicKotlinGradleIT {
 
     var workingDir: File = File(".")
 
-    BeforeMethod fun setUp() {
+    Before fun setUp() {
         workingDir = Files.createTempDir()!!
         workingDir.mkdirs()
         copyRecursively(File("src/test/resources/testProject/alfa"), workingDir)
     }
 
 
-    AfterMethod fun tearDown() {
+    After fun tearDown() {
         deleteRecursively(workingDir)
     }
 
