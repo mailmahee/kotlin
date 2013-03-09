@@ -182,14 +182,26 @@ public final class LoadJavaCustomTest extends KotlinTestWithEnvironment {
                dir + "MethodTypeParameterErased.java");
     }
 
+    public void testReturnInnerSubclassOfSupersInner() throws Exception {
+        String dir = PATH + "/returnInnerSubclassOfSupersInner/";
+        doTest(dir + "ReturnInnerSubclassOfSupersInner.txt",
+               dir + "test/ReturnInnerSubclassOfSupersInner.java");
+    }
+
+    public void testReturnInnerSubclassOfSupersInnerNoCompile() throws Exception {
+        // Test is here because Java PSI used to have some differences when loading parallel generic hierarchies from cls and source code.
+        String dir = PATH + "/returnInnerSubclassOfSupersInner/";
+        doTestNoCompile(dir + "ReturnInnerSubclassOfSupersInner.txt", dir);
+    }
+
     public void testReturnNotSubtype() throws Exception {
         String dir = PATH + "/returnNotSubtype/";
         doTestNoCompile(dir + "ReturnNotSubtype.txt", dir);
     }
 
-    public void testWrongNumberOfGenericParameters() throws Exception {
-        String dir = PATH + "/errors/";
-        doTestNoCompile(dir + "WrongNumberOfGenericParameters.txt", dir);
+    public void testErrorTypes() throws Exception {
+        String dir = PATH + "/errorTypes/";
+        doTestNoCompile(dir + "ErrorTypes.txt", dir);
     }
 
     public static class SubclassingKotlinInJavaTest extends KotlinTestWithEnvironmentManagement {

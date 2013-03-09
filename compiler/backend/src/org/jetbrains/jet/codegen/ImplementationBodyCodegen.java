@@ -194,7 +194,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
         boolean isLocalOrAnonymousClass = isObjectLiteral ||
                                           !(parentDescriptor instanceof NamespaceDescriptor || parentDescriptor instanceof ClassDescriptor);
         if (isLocalOrAnonymousClass) {
-            String outerClassName = getOuterClassName(descriptor, typeMapper, bindingContext, state);
+            String outerClassName = getOuterClassName(descriptor, typeMapper, bindingContext);
             FunctionDescriptor function = DescriptorUtils.getParentOfType(descriptor, FunctionDescriptor.class);
 
             //Function descriptor could be null only for object literal in package namespace
@@ -214,22 +214,16 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
     public static String getOuterClassName(
             @NotNull ClassDescriptor classDescriptor,
             @NotNull JetTypeMapper typeMapper,
-            @NotNull BindingContext bindingContext,
-            @NotNull GenerationState state
+            @NotNull BindingContext bindingContext
     ) {
         ClassDescriptor container = DescriptorUtils.getParentOfType(classDescriptor, ClassDescriptor.class);
         if (container != null) {
             return typeMapper.mapType(container.getDefaultType(), JetTypeMapperMode.IMPL).getInternalName();
         }
         else {
-            NamespaceDescriptor namespaceDescriptor = DescriptorUtils.getParentOfType(classDescriptor, NamespaceDescriptor.class);
-            assert namespaceDescriptor != null : "Namespace descriptor should be present: " + classDescriptor.getName();
-            FqName namespaceQN = namespaceDescriptor.getFqName();
-            boolean isMultiFile = CodegenBinding.isMultiFileNamespace(state.getBindingContext(), namespaceQN);
-            return isMultiFile
-                   ? NamespaceCodegen.getNamespacePartInternalName(
-                                     BindingContextUtils.getContainingFile(bindingContext, classDescriptor))
-                   : NamespaceCodegen.getJVMClassNameForKotlinNs(namespaceQN).getInternalName();
+            JetFile containingFile = BindingContextUtils.getContainingFile(bindingContext, classDescriptor);
+            assert containingFile != null : "Containing file should be present for " + classDescriptor;
+            return NamespaceCodegen.getNamespacePartInternalName(containingFile);
         }
     }
 
@@ -283,6 +277,11 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
         }
         annotationVisitor.visit(JvmStdlibNames.ABI_VERSION_NAME, JvmAbi.VERSION);
         annotationVisitor.visitEnd();
+
+        if (descriptor.getKind() == ClassKind.CLASS_OBJECT) {
+            AnnotationVisitor classObjectVisitor = v.newAnnotation(JvmStdlibNames.JET_CLASS_OBJECT.getDescriptor(), true);
+            classObjectVisitor.visitEnd();
+        }
     }
 
     private JvmClassSignature signature() {
@@ -792,7 +791,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
                                     typeMapper.mapSignature(original.getName(), original).getAsmMethod();
             Type[] argTypes = method.getArgumentTypes();
 
-            String owner = typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION).getInternalName();
+            String owner = typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION, isCallInsideSameModuleAsDeclared(original, context)).getInternalName();
             MethodVisitor mv = v.newMethod(null, ACC_BRIDGE | ACC_SYNTHETIC | ACC_STATIC, bridge.getName().getName(),
                                            method.getDescriptor(), null, null);
             if (state.getClassBuilderMode() == ClassBuilderMode.STUBS) {
@@ -850,12 +849,13 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
 
                     iv.load(0, OBJECT_TYPE);
                     boolean hasBackingField = Boolean.TRUE.equals(bindingContext.get(BindingContext.BACKING_FIELD_REQUIRED, original));
+                    boolean isInsideModule = isCallInsideSameModuleAsDeclared(original, context);
                     if (original.getVisibility() == Visibilities.PRIVATE && hasBackingField) {
-                        iv.getfield(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION).getInternalName(), original.getName().getName(),
+                        iv.getfield(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION, isInsideModule).getInternalName(), original.getName().getName(),
                                     originalMethod.getReturnType().getDescriptor());
                     }
                     else {
-                        iv.invokespecial(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION).getInternalName(),
+                        iv.invokespecial(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION, isInsideModule).getInternalName(),
                                          originalMethod.getName(), originalMethod.getDescriptor());
                     }
 
@@ -892,12 +892,13 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
                         //noinspection AssignmentToForLoopParameter
                         reg += argType.getSize();
                     }
+                    boolean isInsideModule = isCallInsideSameModuleAsDeclared(original, context);
                     if (original.getVisibility() == Visibilities.PRIVATE && original.getModality() == Modality.FINAL) {
-                        iv.putfield(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION).getInternalName(), original.getName().getName(),
+                        iv.putfield(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION, isInsideModule).getInternalName(), original.getName().getName(),
                                     originalMethod.getArgumentTypes()[0].getDescriptor());
                     }
                     else {
-                        iv.invokespecial(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION).getInternalName(),
+                        iv.invokespecial(typeMapper.getOwner(original, OwnerKind.IMPLEMENTATION, isInsideModule).getInternalName(),
                                          originalMethod.getName(), originalMethod.getDescriptor());
                     }
 
@@ -912,14 +913,22 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
     }
 
     private void generateFieldForSingleton() {
-        if (!(isNonLiteralObject(myClass) || descriptor.getKind() == ClassKind.CLASS_OBJECT)) return;
+        boolean hasClassObject = descriptor.getClassObjectDescriptor() != null;
+        boolean isEnumClass = DescriptorUtils.isEnumClass(descriptor);
 
-        v.newField(myClass, ACC_PUBLIC | ACC_STATIC | ACC_FINAL, JvmAbi.INSTANCE_FIELD, classAsmType.getDescriptor(), null, null);
+        if (!(isNonLiteralObject(myClass) || hasClassObject) || isEnumClass) return;
+
+        ClassDescriptor fieldTypeDescriptor = hasClassObject ? descriptor.getClassObjectDescriptor() : descriptor;
+        assert fieldTypeDescriptor != null;
+        final FieldInfo info = FieldInfo.createForSingleton(fieldTypeDescriptor, typeMapper);
+        JetClassOrObject original = hasClassObject ? ((JetClass)myClass).getClassObject().getObjectDeclaration() : myClass;
+
+        v.newField(original, ACC_PUBLIC | ACC_STATIC | ACC_FINAL, info.getFieldName(), info.getFieldType().getDescriptor(), null, null);
 
         staticInitializerChunks.add(new CodeChunk() {
             @Override
             public void generate(InstructionAdapter iv) {
-                genInitSingletonField(classAsmType, iv);
+                genInitSingletonField(info, iv);
             }
         });
     }
@@ -1347,6 +1356,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
                         inheritedFun,
                         false,
                         isCallInsideSameClassAsDeclared(inheritedFun, context),
+                        isCallInsideSameModuleAsDeclared(inheritedFun, context),
                         OwnerKind.IMPLEMENTATION).getSignature();
                 JetMethodAnnotationWriter aw = JetMethodAnnotationWriter.visitAnnotation(mv);
                 int kotlinFlags = getFlagsForVisibility(fun.getVisibility());
@@ -1581,7 +1591,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
                         }
                         codegen.gen(initializer, type);
                         // @todo write directly to the field. Fix test excloset.jet::test6
-                        JvmClassName owner = typeMapper.getOwner(propertyDescriptor, OwnerKind.IMPLEMENTATION);
+                        JvmClassName owner = typeMapper.getOwner(propertyDescriptor, OwnerKind.IMPLEMENTATION, isCallInsideSameModuleAsDeclared(propertyDescriptor, codegen.context));
                         Type propType = typeMapper.mapType(jetType);
                         StackValue.property(propertyDescriptor, owner, owner,
                                             propType, false, false, false, null, null, 0, 0, state).store(propType, iv);

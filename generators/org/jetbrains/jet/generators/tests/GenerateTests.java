@@ -22,6 +22,7 @@ import org.jetbrains.jet.checkers.AbstractDiagnosticsTestWithEagerResolve;
 import org.jetbrains.jet.checkers.AbstractJetPsiCheckerTest;
 import org.jetbrains.jet.codegen.AbstractBytecodeTextTest;
 import org.jetbrains.jet.codegen.AbstractCheckLocalVariablesTableTest;
+import org.jetbrains.jet.codegen.AbstractTopLevelMembersInvocationTest;
 import org.jetbrains.jet.codegen.defaultConstructor.AbstractDefaultConstructorCodegenTest;
 import org.jetbrains.jet.codegen.flags.AbstractWriteFlagsTest;
 import org.jetbrains.jet.codegen.generated.AbstractBlackBoxCodegenTest;
@@ -30,6 +31,7 @@ import org.jetbrains.jet.lang.resolve.lazy.AbstractLazyResolveDescriptorRenderer
 import org.jetbrains.jet.lang.resolve.lazy.AbstractLazyResolveNamespaceComparingTest;
 import org.jetbrains.jet.lang.resolve.lazy.AbstractLazyResolveTest;
 import org.jetbrains.jet.plugin.codeInsight.surroundWith.AbstractSurroundWithTest;
+import org.jetbrains.jet.plugin.folding.AbstractKotlinFoldingTest;
 import org.jetbrains.jet.plugin.highlighter.AbstractDeprecatedHighlightingTest;
 import org.jetbrains.jet.plugin.quickfix.AbstractQuickFixMultiFileTest;
 import org.jetbrains.jet.plugin.quickfix.AbstractQuickFixTest;
@@ -103,6 +105,13 @@ public class GenerateTests {
                 "BytecodeTextTestGenerated",
                 AbstractBytecodeTextTest.class,
                 testModel("compiler/testData/codegen/bytecodeText")
+        );
+
+        generateTest(
+                "compiler/tests/",
+                "TopLevelMembersInvocationTestGenerated",
+                AbstractTopLevelMembersInvocationTest.class,
+                new SimpleTestClassModel(new File("compiler/testData/codegen/topLevelMemberInvocation"), false, Pattern.compile("^(.+)$"), "doTest")
         );
 
         generateTest(
@@ -221,6 +230,13 @@ public class GenerateTests {
                 "DeprecatedHighlightingTestGenerated",
                 AbstractDeprecatedHighlightingTest.class,
                 testModel("idea/testData/highlighter/deprecated")
+        );
+
+        generateTest(
+                "idea/tests/",
+                "KotlinFoldingTestGenerated",
+                AbstractKotlinFoldingTest.class,
+                testModel("idea/testData/folding")
         );
 
         generateTest(

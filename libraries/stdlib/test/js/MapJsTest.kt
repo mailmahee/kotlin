@@ -6,6 +6,8 @@ import java.util.*
 import org.junit.Test as test
 
 class MapJsTest {
+    val KEYS = array("zero", "one", "two", "three")
+    val VALUES = array(0, 1, 2, 3)
 
     test fun getOrElse() {
         val data = HashMap<String, Int>()
@@ -32,6 +34,25 @@ class MapJsTest {
         val data = HashMap<String, Int>()
         assertTrue{ data.empty }
         assertEquals(data.size, 0)
+    }
+
+    // #KT-3035
+    test fun emptyHashMapValues() {
+        val emptyMap = HashMap<String, Int>()
+        assertTrue(emptyMap.values().isEmpty())
+    }
+
+    test fun hashMapValues() {
+        val map = createTestHashMap()
+        assertEquals(VALUES.toList(), map.values().toSortedList())
+    }
+
+    fun createTestHashMap(): HashMap<String, Int> {
+        val map = HashMap<String, Int>()
+        for (i in KEYS.indices) {
+            map.put(KEYS[i], VALUES[i])
+        }
+        return map
     }
 
     /*
