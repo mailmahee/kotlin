@@ -289,7 +289,7 @@ public class DescriptorResolver {
             returnType = KotlinBuiltIns.getInstance().getUnitType();
         }
         else {
-            final JetExpression bodyExpression = function.getBodyExpression();
+            JetExpression bodyExpression = function.getBodyExpression();
             if (bodyExpression != null) {
                 returnType =
                         DeferredType.create(trace, new RecursionIntolerantLazyValueWithDefault<JetType>(ErrorUtils.createErrorType("Recursive dependency")) {
@@ -381,7 +381,7 @@ public class DescriptorResolver {
             boolean declaresDefaultValue = propertyDescriptor != null;
             ValueParameterDescriptorImpl parameterDescriptor =
                     new ValueParameterDescriptorImpl(functionDescriptor, parameter.getIndex(), parameter.getAnnotations(),
-                                                     parameter.getName(), parameter.isVar(), parameter.getType(),
+                                                     parameter.getName(), parameter.getType(),
                                                      declaresDefaultValue,
                                                      parameter.getVarargElementType());
             parameterDescriptors.add(parameterDescriptor);
@@ -485,7 +485,6 @@ public class DescriptorResolver {
                 index,
                 annotationResolver.resolveAnnotations(scope, valueParameter.getModifierList(), trace),
                 JetPsiUtil.safeName(valueParameter.getName()),
-                false,
                 variableType,
                 valueParameter.getDefaultValue() != null,
                 varargElementType
@@ -1024,7 +1023,7 @@ public class DescriptorResolver {
             @NotNull DeclarationDescriptorWithVisibility descriptor,
             @NotNull JetNamedDeclaration declaration,
             @NotNull JetType type,
-            @NotNull final BindingTrace trace
+            @NotNull BindingTrace trace
     ) {
         ClassifierDescriptor classifierDescriptor = type.getConstructor().getDeclarationDescriptor();
         if (!DescriptorUtils.isAnonymous(classifierDescriptor)) {
@@ -1052,7 +1051,7 @@ public class DescriptorResolver {
     private JetType resolveInitializerType(
             @NotNull JetScope scope,
             @NotNull JetExpression initializer,
-            @NotNull final DataFlowInfo dataFlowInfo,
+            @NotNull DataFlowInfo dataFlowInfo,
             @NotNull BindingTrace trace
     ) {
         return expressionTypingServices.safeGetType(scope, initializer, TypeUtils.NO_EXPECTED_TYPE, dataFlowInfo, trace);
@@ -1355,7 +1354,6 @@ public class DescriptorResolver {
                 0,
                 Collections.<AnnotationDescriptor>emptyList(),
                 Name.identifier("value"),
-                false,
                 KotlinBuiltIns.getInstance().getStringType(),
                 false,
                 null);

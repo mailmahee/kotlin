@@ -16,7 +16,6 @@
 
 package org.jetbrains.jet.codegen;
 
-import com.google.common.collect.ImmutableList;
 import com.intellij.openapi.util.Condition;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.containers.ContainerUtil;
@@ -41,7 +40,6 @@ import org.jetbrains.jet.lang.resolve.java.JvmAbi;
 import org.jetbrains.jet.lang.resolve.java.JvmClassName;
 import org.jetbrains.jet.lang.resolve.java.JvmStdlibNames;
 import org.jetbrains.jet.lang.resolve.name.Name;
-import org.jetbrains.jet.lang.resolve.scopes.JetScope;
 import org.jetbrains.jet.lang.types.JetType;
 import org.jetbrains.jet.lang.types.TypeUtils;
 import org.jetbrains.jet.lang.types.lang.KotlinBuiltIns;
@@ -60,7 +58,7 @@ public class CodegenUtil {
 
     public static boolean isInterface(DeclarationDescriptor descriptor) {
         if (descriptor instanceof ClassDescriptor) {
-            final ClassKind kind = ((ClassDescriptor) descriptor).getKind();
+            ClassKind kind = ((ClassDescriptor) descriptor).getKind();
             return kind == ClassKind.TRAIT || kind == ClassKind.ANNOTATION_CLASS;
         }
         return false;
@@ -125,7 +123,7 @@ public class CodegenUtil {
 
     @NotNull
     public static JvmClassName getInternalClassName(FunctionDescriptor descriptor) {
-        final int paramCount = descriptor.getValueParameters().size();
+        int paramCount = descriptor.getValueParameters().size();
         if (descriptor.getReceiverParameter() != null) {
             return JvmClassName.byInternalName("jet/ExtensionFunction" + paramCount);
         }
@@ -183,7 +181,7 @@ public class CodegenUtil {
     }
 
     public static JetType getSuperClass(ClassDescriptor classDescriptor) {
-        final List<ClassDescriptor> superclassDescriptors = DescriptorUtils.getSuperclassDescriptors(classDescriptor);
+        List<ClassDescriptor> superclassDescriptors = DescriptorUtils.getSuperclassDescriptors(classDescriptor);
         for (ClassDescriptor descriptor : superclassDescriptors) {
             if (descriptor.getKind() != ClassKind.TRAIT) {
                 return descriptor.getDefaultType();
@@ -241,20 +239,6 @@ public class CodegenUtil {
 
     private static boolean rawTypeMatches(JetType type, ClassDescriptor classDescriptor) {
         return type.getConstructor().getDeclarationDescriptor().getOriginal() == classDescriptor.getOriginal();
-    }
-
-    @SuppressWarnings("unchecked")
-    static Collection<ClassDescriptor> getInnerClassesAndObjects(ClassDescriptor classDescriptor) {
-        JetScope innerClassesScope = classDescriptor.getUnsubstitutedInnerClassesScope();
-        Collection<DeclarationDescriptor> inners = innerClassesScope.getAllDescriptors();
-        for (DeclarationDescriptor inner : inners) {
-            assert inner instanceof ClassDescriptor
-                    : "Not a class in inner classes scope of " + classDescriptor + ": " + inner;
-        }
-        return new ImmutableList.Builder<ClassDescriptor>()
-                .addAll((Collection) inners)
-                .addAll(innerClassesScope.getObjectDescriptors())
-                .build();
     }
 
     public static boolean isCallInsideSameClassAsDeclared(CallableMemberDescriptor declarationDescriptor, CodegenContext context) {

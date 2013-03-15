@@ -285,7 +285,7 @@ public class DescriptorRendererImpl implements DescriptorRenderer {
         }
         builder.append(" ").append(renderMessage("defined in")).append(" ");
 
-        final DeclarationDescriptor containingDeclaration = descriptor.getContainingDeclaration();
+        DeclarationDescriptor containingDeclaration = descriptor.getContainingDeclaration();
         if (containingDeclaration != null) {
             FqNameUnsafe fqName = DescriptorUtils.getFQName(containingDeclaration);
             builder.append(FqName.ROOT.equalsTo(fqName) ? "root package" : renderFqName(fqName));
@@ -301,7 +301,7 @@ public class DescriptorRendererImpl implements DescriptorRenderer {
             if (!excludedAnnotationClasses.contains(DescriptorUtils.getFQName(annotationClass).toSafe())) {
                 builder.append(renderType(annotation.getType()));
                 if (verbose) {
-                    builder.append("(").append(StringUtil.join(DescriptorUtils.getSortedValueArguments(annotation), ", ")).append(")");
+                    builder.append("(").append(StringUtil.join(DescriptorUtils.getSortedValueArguments(annotation, this), ", ")).append(")");
                 }
                 builder.append(" ");
             }

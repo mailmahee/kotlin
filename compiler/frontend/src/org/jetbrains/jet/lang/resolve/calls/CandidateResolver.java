@@ -304,6 +304,23 @@ public class CandidateResolver {
                 }
             }
         }
+        recordReferenceForInvokeFunction(context);
+    }
+
+    private <D extends CallableDescriptor> void recordReferenceForInvokeFunction(CallCandidateResolutionContext<D> context) {
+        // TODO Replace using CallForImplicitInvoke
+        JetExpression calleeExpression = context.call.getCalleeExpression();
+        if (calleeExpression != null) {
+            PsiElement parent = calleeExpression.getParent();
+            if (parent instanceof JetCallExpression) {
+                JetCallExpression callExpression = (JetCallExpression) parent;
+                if (BindingContextUtils.isCallExpressionWithValidReference(callExpression, context.trace.getBindingContext())) {
+                    CallableDescriptor resultingDescriptor = context.candidateCall.getResultingDescriptor();
+                    context.trace.record(BindingContext.EXPRESSION_TYPE, callExpression, resultingDescriptor.getReturnType());
+                    context.trace.record(BindingContext.REFERENCE_TARGET, callExpression, resultingDescriptor);
+                }
+            }
+        }
     }
 
     private <D extends CallableDescriptor> void addConstraintForFunctionLiteral(
@@ -327,7 +344,7 @@ public class CandidateResolver {
 
             JetElement statementExpression = JetPsiUtil.getLastStatementInABlock(((JetFunctionLiteralExpression) argumentExpression).getBodyExpression());
             if (statementExpression == null) return;
-            final boolean[] mismatch = new boolean[1];
+            boolean[] mismatch = new boolean[1];
             ObservableBindingTrace errorInterceptingTrace = ExpressionTypingUtils.makeTraceInterceptingTypeMismatch(
                     traceToResolveFunctionLiteral, statementExpression, mismatch);
             CallCandidateResolutionContext<D> newContext =
@@ -372,7 +389,7 @@ public class CandidateResolver {
         }
 
         TypeSubstitutor substituteDontCare = ConstraintSystemWithPriorities
-            .makeConstantSubstitutor(candidateWithFreshVariables.getTypeParameters(), DONT_CARE);
+                .makeConstantSubstitutor(candidateWithFreshVariables.getTypeParameters(), DONT_CARE);
 
         // Value parameters
         for (Map.Entry<ValueParameterDescriptor, ResolvedValueArgument> entry : candidateCall.getValueArguments().entrySet()) {
@@ -446,7 +463,7 @@ public class CandidateResolver {
         JetType expectedType = substitutor.substitute(effectiveExpectedType, Variance.INVARIANT);
         CallResolutionContext newContext = context.replaceBindingTrace(traceToResolveArgument).replaceExpectedType(expectedType);
         JetTypeInfo typeInfoForCall = argumentTypeResolver.getArgumentTypeInfo(argumentExpression, newContext,
-                                                                                   resolveFunctionArgumentBodies, traceToResolveArgument);
+                                                                               resolveFunctionArgumentBodies, traceToResolveArgument);
         JetType type = typeInfoForCall.getType();
         constraintSystem.addSubtypeConstraint(type, effectiveExpectedType, ConstraintPosition.getValueParameterPosition(
                 valueParameterDescriptor.getIndex()));

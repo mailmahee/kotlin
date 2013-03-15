@@ -23,11 +23,20 @@ import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.jet.lang.descriptors.CallableDescriptor;
+import org.jetbrains.jet.lang.descriptors.FunctionDescriptor;
 import org.jetbrains.jet.lang.psi.*;
+import org.jetbrains.jet.lang.resolve.BindingContext;
+import org.jetbrains.jet.lang.resolve.DescriptorUtils;
 import org.jetbrains.jet.lang.resolve.ImportPath;
+import org.jetbrains.jet.lang.resolve.calls.model.ResolvedCall;
 import org.jetbrains.jet.lang.resolve.java.PackageClassUtils;
+import org.jetbrains.jet.lang.resolve.lazy.ResolveSession;
+import org.jetbrains.jet.lang.resolve.lazy.ResolveSessionUtils;
 import org.jetbrains.jet.lang.resolve.name.FqName;
+import org.jetbrains.jet.lang.resolve.name.FqNameUnsafe;
 import org.jetbrains.jet.lang.resolve.name.Name;
+import org.jetbrains.jet.plugin.project.WholeProjectAnalyzerFacade;
 import org.jetbrains.jet.plugin.quickfix.ImportInsertHelper;
 import org.jetbrains.jet.util.QualifiedNamesUtil;
 
@@ -126,7 +135,7 @@ public class JetImportOptimizer implements ImportOptimizer {
         return false;
     }
 
-    public static Set<FqName> extractUsedQualifiedNames(final JetFile jetFile) {
+    public static Set<FqName> extractUsedQualifiedNames(JetFile jetFile) {
         final Set<FqName> usedQualifiedNames = new HashSet<FqName>();
         jetFile.accept(new JetVisitorVoid() {
             @Override
@@ -178,6 +187,38 @@ public class JetImportOptimizer implements ImportOptimizer {
                 }
 
                 super.visitReferenceExpression(expression);
+            }
+
+            @Override
+            public void visitForExpression(JetForExpression expression) {
+                ResolveSession resolveSession = WholeProjectAnalyzerFacade.getLazyResolveSessionForFile((JetFile) expression.getContainingFile());
+                BindingContext context = ResolveSessionUtils.resolveToExpression(resolveSession, expression);
+                ResolvedCall<FunctionDescriptor> resolvedCall = context.get(BindingContext.LOOP_RANGE_ITERATOR_RESOLVED_CALL, expression.getLoopRange());
+                addResolvedCallFqName(resolvedCall);
+
+                super.visitForExpression(expression);
+            }
+
+            @Override
+            public void visitMultiDeclaration(JetMultiDeclaration declaration) {
+                ResolveSession resolveSession = WholeProjectAnalyzerFacade.getLazyResolveSessionForFile((JetFile) declaration.getContainingFile());
+                BindingContext context = ResolveSessionUtils.resolveToExpression(resolveSession, declaration);
+                List<JetMultiDeclarationEntry> entries = declaration.getEntries();
+                for (JetMultiDeclarationEntry entry : entries) {
+                    ResolvedCall<FunctionDescriptor> resolvedCall = context.get(BindingContext.COMPONENT_RESOLVED_CALL, entry);
+                    addResolvedCallFqName(resolvedCall);
+                }
+
+                super.visitMultiDeclaration(declaration);
+            }
+
+            private void addResolvedCallFqName(@Nullable ResolvedCall resolvedCall) {
+                if (resolvedCall != null) {
+                    CallableDescriptor resultingDescriptor = resolvedCall.getResultingDescriptor();
+                    FqNameUnsafe name = DescriptorUtils.getFQName(resultingDescriptor);
+                    assert name.isSafe(): "FqName for resulting descriptor should be safe " + resultingDescriptor.getName();
+                    usedQualifiedNames.add(name.toSafe());
+                }
             }
         });
 
