@@ -46,10 +46,13 @@ public class KotlinCacheManager {
     }
 
     private static final Key<CachedValue<KotlinDeclarationsCache>> KOTLIN_DECLARATIONS_CACHE = Key.create("KOTLIN_DECLARATIONS_CACHE");
-    private static final Key<BindingTrace> INCOMPLETE_RESULTS = Key.create("KOTLIN_DECLARATIONS_CACHE");
 
     private final Project project;
     private final Object declarationAnalysisLock = new Object();
+
+    // In fact, all accesses are directly or indirectly under the lock
+    @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
+    private BindingTrace incompleteTrace;
 
 
     public KotlinCacheManager(@NotNull Project project) {
@@ -62,7 +65,6 @@ public class KotlinCacheManager {
         ApplicationManager.getApplication().assertReadAccessAllowed();
         synchronized (declarationAnalysisLock) {
             if (allowIncomplete) {
-                final BindingTrace incompleteTrace = project.getUserData(INCOMPLETE_RESULTS);
                 if (incompleteTrace != null) {
                     return new KotlinDeclarationsCache() {
                         @NotNull
@@ -114,7 +116,8 @@ public class KotlinCacheManager {
         public Result<KotlinDeclarationsCache> compute() {
             BindingTraceContext trace = new BindingTraceContext();
 
-            project.putUserData(INCOMPLETE_RESULTS, trace);
+            // This code is only called under declarationAnalysisLock
+            incompleteTrace = trace;
             AnalyzeExhaust analyzeExhaust;
             try {
                 analyzeExhaust = AnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(
@@ -126,7 +129,7 @@ public class KotlinCacheManager {
                         true);
             }
             finally {
-                project.putUserData(INCOMPLETE_RESULTS, null);
+                incompleteTrace = null;
             }
 
             return Result.<KotlinDeclarationsCache>create(
